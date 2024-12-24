@@ -63,9 +63,16 @@ blocks = {
     }
 }
 
-num_trains = 2
+num_trains = 3
 
-circuit = Circuit(block_ref_dict=blocks, num_trains=num_trains)
+optional_params = {
+    'sluggishness': True,
+    'sluggishness_mu': 1.5,
+    'sluggishness_sigma': 0.6,
+    'random_seed': 10
+}
+
+circuit = Circuit(block_ref_dict=blocks, num_trains=num_trains, optional_params=optional_params)
 
 # run the sim
 for _ in range(36000):

@@ -14,12 +14,14 @@ Attributes:
     - time (int): current time step of the simulation run (default unit: seconds)
 """
 
+import numpy as np
+
 from block import Block
 from train import Train
 
 
 class Circuit:
-    def __init__(self, block_ref_dict, num_trains):
+    def __init__(self, block_ref_dict, num_trains, optional_params=None):
         self.blocks = {}
         for block in block_ref_dict:
             self.blocks[block] = Block(name=block, block_dict=block_ref_dict[block])
@@ -30,6 +32,18 @@ class Circuit:
         for train in self.trains:
             self.blocks[self.trains[train].current_block].is_occupied = True
         self.time = 0
+        self.dispatch_sluggishness = False
+        self.sluggishness_mu = None
+        self.sluggishness_sigma = None
+        self.random_seed = 0
+        if optional_params:
+            if 'sluggishness' in optional_params:
+                self.dispatch_sluggishness = optional_params['sluggishness']
+                self.sluggishness_mu = optional_params['sluggishness_mu']
+                self.sluggishness_sigma = optional_params['sluggishness_sigma']
+            if 'random_seed' in optional_params:
+                self.random_seed = optional_params['random_seed']
+        self.rng = np.random.default_rng(self.random_seed)
 
     def calculate_complete_blocks(self):
         return len([b for b in self.blocks if self.blocks[b].can_operate_from_stop])
@@ -108,6 +122,9 @@ class Circuit:
                         # we reached station (or show scene? transfer track? etc... and must pause
                         self.trains[train_name].current_status = 'held'
                         self.trains[train_name].mandatory_hold_left = self.blocks[curr_block].hold_time
+                        if self.dispatch_sluggishness:
+                            delay = round(self.rng.lognormal(mean=1.5, sigma=0.6))
+                            self.trains[train_name].mandatory_hold_left += delay
                     elif self.blocks[next_block].is_occupied:
                         # this means another train is there! we cannot proceed.
                         # mark train as held
