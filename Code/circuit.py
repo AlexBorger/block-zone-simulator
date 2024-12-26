@@ -30,7 +30,7 @@ class Circuit:
         self.trains = {}
         self.add_trains_to_circuit()
         for train in self.trains:
-            self.blocks[self.trains[train].current_block].is_occupied = True
+            self.blocks[self.trains[train].current_block].occupy(override=True)
         self.time = 0
         self.dispatch_sluggishness = False
         self.sluggishness_mu = None
@@ -79,7 +79,7 @@ class Circuit:
         # advance each train if possible
         for train_name in self.trains:
             curr_block = self.trains[train_name].current_block
-            next_block = self.trains[train_name].next_block_name
+            next_block = self.blocks[curr_block].next_block_name  # self.trains[train_name].next_block_name
             if self.trains[train_name].current_status == 'held':
                 # do a thing because they are held rn
                 if self.trains[train_name].mandatory_hold_left > 0:
@@ -88,7 +88,7 @@ class Circuit:
                 else:
                     # held and ready to go
                     # is the next block ready?
-                    if self.blocks[next_block].is_occupied:
+                    if not self.blocks[next_block].occupy(requester_block=curr_block):
                         # we cannot go anywhere
                         if not self.blocks[curr_block].can_operate_from_stop:
                             # TODO: signal to all other trains to stop at the next possible block.
@@ -98,14 +98,24 @@ class Circuit:
                         trains_blocked += 1
                     else:
                         # we can proceed but from held position
-                        # mark next block as occupied, do not mark this one as unoccupied, start countdown for "from held"
-                        self.blocks[next_block].is_occupied = True
                         self.trains[train_name].seconds_to_clear_from_held = self.blocks[curr_block].seconds_to_clear_from_held
                         self.trains[train_name].current_status = 'after block - from held'
             # elif/else... means we are in motion.  EITHER: seconds_to_reach_block > 0 (we haven't reached our own block yet), OR
             # seconds_to_clear_from_held > 0 (we were held and were recently released), OR seconds_to_clear_block_in_motion > 0 (we reached
             # our own block but haven't exited it yet).  Only ONE of these should be > 0 at any given time. if all are 0...
             elif self.trains[train_name].seconds_to_reach_block > 0:
+                # if we haven't reached block yet, check if we cleared merger
+                if self.blocks[curr_block].has_merger_switch:
+                    if self.trains[train_name].seconds_to_clear_merger > 0:
+                        self.trains[train_name].seconds_to_clear_merger -= 1
+                        if self.trains[train_name].seconds_to_clear_merger == 0 and self.num_trains > 1:
+                            # let block decide if it wants to activate merge switch
+                            active_block, inactive_block = self.blocks[curr_block].get_merger_switch_status()
+                            self.blocks[curr_block].signal_cleared_merger(self.blocks[active_block].is_occupied,
+                                                                          self.blocks[inactive_block].is_occupied)
+                    else:
+                        # not sure if this attribute is really needed
+                        self.trains[train_name].seconds_merger_to_block -= 1
                 self.trains[train_name].seconds_to_reach_block -= 1
             elif self.trains[train_name].seconds_to_clear_from_held > 0:
                 # we were held, decrease this
@@ -125,20 +135,20 @@ class Circuit:
                         if self.dispatch_sluggishness:
                             delay = round(self.rng.lognormal(mean=1.5, sigma=0.6))
                             self.trains[train_name].mandatory_hold_left += delay
-                    elif self.blocks[next_block].is_occupied:
+                    else:
+                        if not self.blocks[next_block].occupy(requester_block=curr_block):
                         # this means another train is there! we cannot proceed.
                         # mark train as held
-                        self.trains[train_name].current_status = 'held'
-                        trains_blocked += 1
-                        if not self.blocks[curr_block].can_operate_from_stop:
-                            # TODO: signal to all other trains to stop at the next possible block.
-                            raise ValueError(f"Train {train_name} halted at block {curr_block}. Ride is now in 101 status.")
-                    else:
-                        # we were moving, reached block and are cleared to move forward
-                        self.blocks[next_block].is_occupied = True
-                        self.trains[train_name].seconds_to_clear_block_in_motion = self.blocks[curr_block].seconds_to_clear_block_in_motion
-                        self.trains[train_name].current_status = 'after block - not held'
-                # if next block already belongs to us, that means we already reached our block and are proceeding forward
+                            self.trains[train_name].current_status = 'held'
+                            trains_blocked += 1
+                            if not self.blocks[curr_block].can_operate_from_stop:
+                                # TODO: signal to all other trains to stop at the next possible block.
+                                raise ValueError(f"Train {train_name} halted at block {curr_block}. Ride is now in 101 status.")
+                        else:
+                            # we were moving, reached block and are cleared to move forward
+                            self.trains[train_name].seconds_to_clear_block_in_motion = self.blocks[curr_block].seconds_to_clear_block_in_motion
+                            self.trains[train_name].current_status = 'after block - not held'
+                    # if next block already belongs to us, that means we already reached our block and are proceeding forward
                 else:
                     # we reached end of block from motion OR stopped, either way... advance to next block
                     # we already own the next block, no need to check or alter it
@@ -146,10 +156,11 @@ class Circuit:
                     self.trains[train_name].current_block = next_block
                     self.trains[train_name].next_block_name = self.blocks[next_block].next_block_name
                     self.trains[train_name].seconds_to_reach_block = self.blocks[next_block].seconds_to_reach_block
+                    self.trains[train_name].seconds_to_clear_merger = self.blocks[next_block].seconds_to_clear_merger
                     self.trains[train_name].seconds_held_at_current_block = 0
                     self.trains[train_name].current_status = 'before block'
-                    self.blocks[curr_block].is_occupied = False
-                    if next_block == 'station':
+                    self.blocks[curr_block].unoccupy(override_switch=(self.num_trains == 1))
+                    if next_block in ['station 1', 'station 2']:
                         self.trains[train_name].circuits_completed += 1
                         #if trains[train_name]['lead_train']:
                         #    print("Lead train completed circuit!")
