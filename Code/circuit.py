@@ -111,6 +111,8 @@ class Circuit:
                         if self.trains[train_name].seconds_to_clear_merger == 0 and self.num_trains > 1:
                             # let block decide if it wants to activate merge switch
                             active_block, inactive_block = self.blocks[curr_block].get_merger_switch_status()
+                            # if we know the next dispatch is going to be from the inactive block, switch it.
+                            # TODO: Implement above
                             self.blocks[curr_block].signal_cleared_merger(self.blocks[active_block].is_occupied,
                                                                           self.blocks[inactive_block].is_occupied)
                     else:
