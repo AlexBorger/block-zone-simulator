@@ -43,6 +43,10 @@ class Circuit:
                 self.sluggishness_sigma = optional_params['sluggishness_sigma']
             if 'random_seed' in optional_params:
                 self.random_seed = optional_params['random_seed']
+            if 'circuit_completion_blocks' in optional_params:
+                self.circuit_completion_blocks = optional_params['circuit_completion_blocks']
+            else:
+                self.circuit_completion_blocks = None
         self.rng = np.random.default_rng(self.random_seed)
 
     def calculate_complete_blocks(self):
@@ -112,9 +116,31 @@ class Circuit:
                             # let block decide if it wants to activate merge switch
                             active_block, inactive_block = self.blocks[curr_block].get_merger_switch_status()
                             # if we know the next dispatch is going to be from the inactive block, switch it.
-                            # TODO: Implement above
-                            self.blocks[curr_block].signal_cleared_merger(self.blocks[active_block].is_occupied,
-                                                                          self.blocks[inactive_block].is_occupied)
+                            # TODO: Implement above. If both stations are empty, merger should anticipate taking
+                            # train from whichever station the splitter is going to send a train to
+                            # if exactly one is occupied, it should point to the occupied block
+                            # if both are occupied, it should take from the train that will dispatch sooner, or in a
+                            # dead tie, do nothing
+                            active_block_occupied = self.blocks[active_block].is_occupied
+                            inactive_block_occupied = self.blocks[inactive_block].is_occupied
+                            # TODO: If this is the best implementation, simplify
+                            switch = False
+                            if not active_block_occupied and not inactive_block_occupied:
+                                # neither are occupied, point to wherever the splitter is pointing
+                                corr_splitter_block = self.blocks[curr_block].corresponding_splitter_block
+                                if self.blocks[corr_splitter_block].splitter_switch_position == inactive_block:
+                                    switch = True
+                            elif active_block_occupied and not inactive_block_occupied:
+                                # we shouldn't do anything
+                                # self.blocks[curr_block].signal_cleared_merger(switch=False)
+                                switch = False
+                            elif not active_block_occupied and inactive_block_occupied:
+                                # we need to switch to the other
+                                switch = True
+                            else:
+                                # both are occupied
+                                switch = False
+                            self.blocks[curr_block].signal_cleared_merger(switch=switch)
                     else:
                         # not sure if this attribute is really needed
                         self.trains[train_name].seconds_merger_to_block -= 1
@@ -162,11 +188,12 @@ class Circuit:
                     self.trains[train_name].seconds_held_at_current_block = 0
                     self.trains[train_name].current_status = 'before block'
                     self.blocks[curr_block].unoccupy(override_switch=(self.num_trains == 1))
-                    if next_block in ['station 1', 'station 2']:
-                        self.trains[train_name].circuits_completed += 1
-                        #if trains[train_name]['lead_train']:
-                        #    print("Lead train completed circuit!")
-                    trains_advanced += 1
+                    if self.circuit_completion_blocks:
+                        if next_block in self.circuit_completion_blocks:
+                            self.trains[train_name].circuits_completed += 1
+                            #if trains[train_name]['lead_train']:
+                            #    print("Lead train completed circuit!")
+                            trains_advanced += 1
         if trains_blocked == self.num_trains:
             # we hit gridlock
             raise ValueError(f"Gridlock hit at t={self.time}!")

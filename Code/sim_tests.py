@@ -37,6 +37,7 @@ blocks = {
         'has_merger_switch': True,
         'merger_block_a': 'station 1',
         'merger_block_b': 'station 2',
+        'corresponding_splitter_block': 'final block 1',
         'seconds_to_clear_merger': 2,
         'seconds_merger_to_block': 16,  # purely for reference at the moment
         'has_splitter_switch': False
@@ -89,7 +90,8 @@ blocks = {
         'has_merger_switch': False,
         'has_splitter_switch': True,
         'splitter_block_a': 'station 1',
-        'splitter_block_b': 'station 2'
+        'splitter_block_b': 'station 2',
+        'corresponding_merger_block': 'lift 1'
     }
 }
 

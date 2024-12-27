@@ -22,6 +22,8 @@ class Block:
         self.has_merger_switch = block_dict['has_merger_switch']
         self.merger_switch_position = None
         self.merger_switch_status = None
+        self.corresponding_splitter_block = None
+        self.corresponding_merger_block = None
         self.seconds_to_clear_merger = 0
         self.seconds_merger_to_block = 0
         if self.has_merger_switch:
@@ -31,6 +33,7 @@ class Block:
             self.seconds_merger_to_block = block_dict['seconds_merger_to_block']
             self.merger_switch_position = self.merger_block_a
             self.merger_switch_status = 'in position'  # can be 'in position' or 'in motion' -> en route to switch_pos
+            self.corresponding_splitter_block = block_dict['corresponding_splitter_block']
             # for now, we should just have instantaneous switching. once it all works, add switch delay
         self.has_splitter_switch = block_dict['has_splitter_switch']
         if self.has_splitter_switch:
@@ -43,6 +46,7 @@ class Block:
             else:
                 raise ValueError("Invalid 'next_block_name' specified for block with splitter switch.")
             self.splitter_switch_status = 'in position'  # same as above
+            self.corresponding_merger_block = block_dict['corresponding_merger_block']
 
     def occupy(self, requester_block=None, override=False):
         """ train wants to occupy zone
@@ -85,12 +89,12 @@ class Block:
         else:
             return self.merger_block_b, self.merger_block_a
 
-    def signal_cleared_merger(self, active_block_occupied, inactive_block_occupied):
-        # if train passes merge point, determine if we should switch
-        if active_block_occupied and not inactive_block_occupied:
-            pass  # in this case, current position will yield the faster dispatch
-        else:
+    def signal_cleared_merger(self, switch):
+        # update internal state to the extent we care to
+        if switch:
             self.toggle_merger_switch()
+        else:
+            pass
 
     def toggle_merger_switch(self):
         """ change merger switch position from current to other
