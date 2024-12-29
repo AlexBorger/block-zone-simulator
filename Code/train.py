@@ -26,3 +26,7 @@ class Train:
         self.current_status = train_ref_dict['current_status']
         self.circuits_completed = train_ref_dict['circuits_completed']
         self.lead_train = train_ref_dict['lead_train']
+        self.history = {
+            'total_seconds_held':
+                {}
+        }

@@ -9,7 +9,7 @@ blocks = {
         'is_occupied': False,
         'can_operate_from_stop': True,
         'mandatory_hold': True,
-        'hold_time': 38,
+        'hold_time': 33,
         'has_merger_switch': False,
         'has_splitter_switch': False
     },
@@ -101,7 +101,9 @@ optional_params = {
     'sluggishness': True,
     'sluggishness_mu': 1.5,
     'sluggishness_sigma': 0.6,
-    'random_seed': 10
+    'random_seed': 10,
+    'circuit_completion_blocks': ['station 1', 'station 2'],
+    'verbose': 0
 }
 
 circuit = Circuit(block_ref_dict=blocks, num_trains=num_trains, optional_params=optional_params)

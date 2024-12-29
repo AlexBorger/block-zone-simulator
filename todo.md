@@ -6,6 +6,7 @@
    - Splitter/Merger switches implemented allow for dual station setup **[DONE]**
    - fix issue with 2 train ops where merger/splitter switches are out of sync
 4. Add real examples and analyze capacity
+   - Expedition Everest analysis **[DONE]**
 5. Finish moving logic into block.py, train.py **[DONE]**
 6. Add more complex block functionality for rides with switch tracks
    - Beyond multi-station operation, unclear if additional switches impact throughput analysis

@@ -31,11 +31,16 @@ class Circuit:
         self.add_trains_to_circuit()
         for train in self.trains:
             self.blocks[self.trains[train].current_block].occupy(override=True)
+            self.trains[train].history['total_seconds_held'] = {
+                block: 0 for block in self.blocks
+            }
         self.time = 0
         self.dispatch_sluggishness = False
         self.sluggishness_mu = None
         self.sluggishness_sigma = None
         self.random_seed = 0
+        self.circuit_completion_blocks = None
+        self.verbose = 0
         if optional_params:
             if 'sluggishness' in optional_params:
                 self.dispatch_sluggishness = optional_params['sluggishness']
@@ -45,8 +50,10 @@ class Circuit:
                 self.random_seed = optional_params['random_seed']
             if 'circuit_completion_blocks' in optional_params:
                 self.circuit_completion_blocks = optional_params['circuit_completion_blocks']
-            else:
-                self.circuit_completion_blocks = None
+            if 'verbose' in optional_params:
+                self.verbose = optional_params['verbose']
+                if self.verbose not in [0, 1, 2]:
+                    raise ValueError(f'{self.verbose} not a valid verbosity setting.  Must be in [0, 1, 2].')
         self.rng = np.random.default_rng(self.random_seed)
 
     def calculate_complete_blocks(self):
@@ -99,11 +106,13 @@ class Circuit:
                             raise ValueError(f"Train {train_name} halted at block {curr_block}. Ride is now in 101 status.")
                         self.trains[train_name].seconds_held_at_current_block += 1
                         self.trains[train_name].total_seconds_held += 1
+                        self.trains[train_name].history['total_seconds_held'][curr_block] += 1
                         trains_blocked += 1
                     else:
                         # we can proceed but from held position
                         self.trains[train_name].seconds_to_clear_from_held = self.blocks[curr_block].seconds_to_clear_from_held
                         self.trains[train_name].current_status = 'after block - from held'
+                        self.trains[train_name].seconds_to_clear_from_held -= 1
             # elif/else... means we are in motion.  EITHER: seconds_to_reach_block > 0 (we haven't reached our own block yet), OR
             # seconds_to_clear_from_held > 0 (we were held and were recently released), OR seconds_to_clear_block_in_motion > 0 (we reached
             # our own block but haven't exited it yet).  Only ONE of these should be > 0 at any given time. if all are 0...
@@ -163,6 +172,7 @@ class Circuit:
                         if self.dispatch_sluggishness:
                             delay = round(self.rng.lognormal(mean=1.5, sigma=0.6))
                             self.trains[train_name].mandatory_hold_left += delay
+                        self.trains[train_name].mandatory_hold_left -= 1
                     else:
                         if not self.blocks[next_block].occupy(requester_block=curr_block):
                         # this means another train is there! we cannot proceed.
@@ -172,10 +182,12 @@ class Circuit:
                             if not self.blocks[curr_block].can_operate_from_stop:
                                 # TODO: signal to all other trains to stop at the next possible block.
                                 raise ValueError(f"Train {train_name} halted at block {curr_block}. Ride is now in 101 status.")
+                            self.trains[train_name].seconds_held_at_current_block += 1
                         else:
                             # we were moving, reached block and are cleared to move forward
                             self.trains[train_name].seconds_to_clear_block_in_motion = self.blocks[curr_block].seconds_to_clear_block_in_motion
                             self.trains[train_name].current_status = 'after block - not held'
+                            self.trains[train_name].seconds_to_clear_block_in_motion -= 1
                     # if next block already belongs to us, that means we already reached our block and are proceeding forward
                 else:
                     # we reached end of block from motion OR stopped, either way... advance to next block
@@ -184,7 +196,10 @@ class Circuit:
                     self.trains[train_name].current_block = next_block
                     self.trains[train_name].next_block_name = self.blocks[next_block].next_block_name
                     self.trains[train_name].seconds_to_reach_block = self.blocks[next_block].seconds_to_reach_block
+                    self.trains[train_name].seconds_to_reach_block -= 1
                     self.trains[train_name].seconds_to_clear_merger = self.blocks[next_block].seconds_to_clear_merger
+                    if self.trains[train_name].seconds_to_clear_merger > 0:
+                        self.trains[train_name].seconds_to_clear_merger -= 1
                     self.trains[train_name].seconds_held_at_current_block = 0
                     self.trains[train_name].current_status = 'before block'
                     self.blocks[curr_block].unoccupy(override_switch=(self.num_trains == 1))
@@ -194,6 +209,14 @@ class Circuit:
                             #if trains[train_name]['lead_train']:
                             #    print("Lead train completed circuit!")
                             trains_advanced += 1
+            if self.verbose == 2 or (self.verbose == 1 and self.trains[train_name].lead_train):
+                # add current_status
+                log_params = []
+                log_params.append(f"t={self.time}")
+                log_params.append(f"{train_name}: {self.trains[train_name].current_block}")
+                log_params.append(f"status: {self.trains[train_name].current_status}")
+                log_params.append(f"seconds held at current block: {self.trains[train_name].seconds_held_at_current_block}")
+                print(', '.join([p for p in log_params]))
         if trains_blocked == self.num_trains:
             # we hit gridlock
             raise ValueError(f"Gridlock hit at t={self.time}!")
