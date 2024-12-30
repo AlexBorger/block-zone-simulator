@@ -36,4 +36,8 @@ For those unfamiliar with Python, the following steps can get you up and running
 
 1. Create a notebook in Google Colab
   - This service is free and easy to setup if you already have a Google account.  Simply login to your Google account at https://colab.research.google.com/, and...
-2. When prompted to add or select a notebook, choose GitHub -> enter "AlexBorger" in search bar -> 
+2. When prompted to add or select a notebook, choose GitHub -> enter "AlexBorger" in search bar -> Select Code/colab_start_guide.ipynb
+3. A new notebook should open up in Google Colab.  Each cell has a play button in the top left corner.  The notebook has three cells.  Run each one exactly once and observe the outputs.
+
+The animation that renders is currently blinking and I'm not sure why.  But, after running the above steps, you are using the sim!  You can edit the data within the `blocks` dictionary in cell 2 to see how it affects the capacity of the ride.  If you edit this data, be sure to hit the Play button in that cell, or the changes won't be applied.
+
