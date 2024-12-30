@@ -26,3 +26,14 @@ More metrics and features to come are listed in todo.md.
 ![Example Animation](Code/example_sim.gif)
 
 This example gif shows a circuit with dual loading stations.  Track switches are used on lift 1 and final block 1, the current switch position of which is shown on the graph.  Please ignore the x and y axes!
+
+
+### User Start Guide
+
+To use this simulator, you can download the repo into your preferred setup if you are already familiar with Python.  This project was developed using Python 3.6.8.
+
+For those unfamiliar with Python, the following steps can get you up and running with the simulation in a few minutes:
+
+1. Create a notebook in Google Colab
+  - This service is free and easy to setup if you already have a Google account.  Simply login to your Google account at https://colab.research.google.com/, and...
+2. When prompted to add or select a notebook, choose GitHub -> enter "AlexBorger" in search bar -> 
